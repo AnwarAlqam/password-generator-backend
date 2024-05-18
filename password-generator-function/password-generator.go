@@ -10,6 +10,10 @@ import (
 	"github.com/sethvargo/go-password/password"
 )
 
+type QueryParams struct {
+    PasswordLength int `form:"passwordLength" binding:"required"`
+}
+
 func APIPort() string {
 	port := ":8080"
 	if val, ok := os.LookupEnv("FUNCTIONS_CUSTOMHANDLER_PORT"); ok {
@@ -21,7 +25,20 @@ func APIPort() string {
 func getPassword(c *gin.Context) {
 	log.Println("Invoke ROOT")
 
-	res, err := password.Generate(32, 10, 10, false, false)
+	var queryParams QueryParams
+
+	if err := c.ShouldBindQuery(&queryParams); err!= nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if (queryParams.PasswordLength < 1)  {
+		queryParams.PasswordLength = 1
+	}
+
+	numNonAlphabetic := min(20, queryParams.PasswordLength / 2)
+
+	res, err := password.Generate(queryParams.PasswordLength, numNonAlphabetic / 2, numNonAlphabetic / 2, false, false)
 
 	if err != nil {
 		log.Fatal(err)
@@ -36,7 +53,6 @@ func getPassword(c *gin.Context) {
 func main() {
 	router := gin.Default()
 	router.GET("api/getPassword", getPassword)
-	fmt.Println("HERE")
 
 	port_info := APIPort()
 	router.Run(port_info)
